@@ -1,0 +1,201 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// 定义候补订单结构体
+typedef struct {
+    char order_id[32];      // 订单号
+    char name[32];          // 旅客姓名
+    char id_card[32];       // 身份证号
+} Order;
+
+// 定义队列节点
+typedef struct QueueNode {
+    Order data;
+    struct QueueNode* next;
+} QueueNode;
+
+// 定义队列结构
+typedef struct {
+    QueueNode* front;       // 队头
+    QueueNode* rear;        // 队尾
+    int size;               // 队列大小
+} Queue;
+
+// 初始化队列
+void initQueue(Queue* q) {
+    q->front = q->rear = NULL;
+    q->size = 0;
+}
+
+// 判断队列是否为空
+int isEmpty(Queue* q) {
+    return q->front == NULL;
+}
+
+// 入队：新增候补订单
+void enqueue(Queue* q, Order order) {
+    QueueNode* newNode = (QueueNode*)malloc(sizeof(QueueNode));
+    if (!newNode) {
+        printf("内存分配失败！\n");
+        return;
+    }
+    newNode->data = order;
+    newNode->next = NULL;
+
+    if (isEmpty(q)) {
+        q->front = q->rear = newNode;
+    } else {
+        q->rear->next = newNode;
+        q->rear = newNode;
+    }
+    q->size++;
+}
+
+// 出队：候补成功，输出订单信息
+int dequeue(Queue* q, Order* outOrder) {
+    if (isEmpty(q)) {
+        return 0; // 队列为空
+    }
+    QueueNode* temp = q->front;
+    *outOrder = temp->data;
+    q->front = q->front->next;
+    if (q->front == NULL) {
+        q->rear = NULL;
+    }
+    free(temp);
+    q->size--;
+    return 1;
+}
+
+// 余票发放：处理候补订单
+void releaseTickets(Queue* q, int k) {
+    if (k <= 0) {
+        printf("释放余票数量必须大于0！\n");
+        return;
+    }
+    printf("本次释放余票：%d 张\n", k);
+    int remaining = k;
+    int successCount = 0;
+
+    while (remaining > 0 && !isEmpty(q)) {
+        Order order;
+        if (dequeue(q, &order)) {
+            // 假设每个订单只需要1张票
+            remaining -= 1;
+            successCount++;
+            printf("候补成功 -> 订单号：%s，姓名：%s，身份证：%s\n",
+                   order.order_id, order.name, order.id_card);
+        }
+    }
+
+    if (successCount == 0) {
+        printf("没有候补订单被处理（队列为空或余票不足）。\n");
+    } else {
+        printf("本次共成功处理 %d 个候补订单。\n", successCount);
+    }
+
+    if (!isEmpty(q)) {
+        printf("候补队列中仍有 %d 个订单在等待。\n", q->size);
+    } else {
+        printf("候补队列已清空。\n");
+    }
+}
+
+// 显示队列中所有订单（辅助功能）
+void displayQueue(Queue* q) {
+    if (isEmpty(q)) {
+        printf("候补队列为空。\n");
+        return;
+    }
+    printf("当前候补队列（共 %d 个订单）：\n", q->size);
+    QueueNode* cur = q->front;
+    int index = 1;
+    while (cur) {
+        printf("  %d. 订单号：%s，姓名：%s，身份证：%s\n",
+               index++, cur->data.order_id, cur->data.name, cur->data.id_card);
+        cur = cur->next;
+    }
+}
+
+// 清空队列，释放内存
+void clearQueue(Queue* q) {
+    while (!isEmpty(q)) {
+        Order temp;
+        dequeue(q, &temp);
+    }
+}
+
+// 主菜单
+void menu() {
+    printf("\n========== 12306 候补模块（基础版） ==========\n");
+    printf("1. 新增候补订单（入队）\n");
+    printf("2. 余票发放（按顺序出票）\n");
+    printf("3. 查看当前候补队列\n");
+    printf("0. 退出程序\n");
+    printf("请输入操作编号：");
+}
+
+int main() {
+    Queue候补队列;
+    initQueue(&候补队列);
+
+    int choice;
+    while (1) {
+        menu();
+        if (scanf("%d", &choice) != 1) {
+            printf("输入无效，请重新输入！\n");
+            while (getchar() != '\n'); // 清空输入缓冲区
+            continue;
+        }
+        getchar(); // 吃掉换行符
+
+        switch (choice) {
+            case 1: {
+                Order newOrder;
+                printf("请输入订单号：");
+                fgets(newOrder.order_id, sizeof(newOrder.order_id), stdin);
+                newOrder.order_id[strcspn(newOrder.order_id, "\n")] = '\0';
+
+                printf("请输入旅客姓名：");
+                fgets(newOrder.name, sizeof(newOrder.name), stdin);
+                newOrder.name[strcspn(newOrder.name, "\n")] = '\0';
+
+                printf("请输入身份证号：");
+                fgets(newOrder.id_card, sizeof(newOrder.id_card), stdin);
+                newOrder.id_card[strcspn(newOrder.id_card, "\n")] = '\0';
+
+                enqueue(&候补队列, newOrder);
+                printf("候补订单已加入队列尾部。当前队列长度：%d\n", 候补队列.size);
+                break;
+            }
+            case 2: {
+                int k;
+                printf("请输入本次释放的余票数量 k：");
+                if (scanf("%d", &k) != 1) {
+                    printf("输入无效！\n");
+                    while (getchar() != '\n');
+                    break;
+                }
+                getchar(); // 吃掉换行符
+                releaseTickets(&候补队列, k);
+                break;
+            }
+            case 3: {
+                displayQueue(&候补队列);
+                break;
+            }
+            case 0: {
+                printf("感谢使用，程序退出。\n");
+                clearQueue(&候补队列);
+                return 0;
+            }
+            default: {
+                printf("无效操作，请重新输入！\n");
+                break;
+            }
+        }
+    }
+
+    return 0;
+}
